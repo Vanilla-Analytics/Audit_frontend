@@ -20,12 +20,18 @@ function App() {
     setError(null);
     
     try {
-      const formData = new FormData();
-      formData.append('name', form.name);
-      formData.append('email', form.email);
-      formData.append('url', form.url);
+      // const formData = new FormData();
+      // formData.append('name', form.name);
+      // formData.append('email', form.email);
+      // formData.append('url', form.url);
 
-      const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/submit/`, formData);
+      const payload = {
+        name: form.name,
+        email: form.email,
+        url: form.url
+      };
+
+      const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/submit/`, payload);
       setPdfUrl(res.data.pdf_url);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to generate PDF');
