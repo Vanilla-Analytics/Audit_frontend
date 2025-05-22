@@ -1,14 +1,14 @@
 
-import React from 'react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
-
 
 function App() {
   const [form, setForm] = useState({ name: '', email: '', url: '' });
   const [pdfUrl, setPdfUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [progress, setProgress] = useState({ percent: 0, section: '' });
+  const [sectionsDone, setSectionsDone] = useState([]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -18,22 +18,33 @@ function App() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+    setProgress({ percent: 0, section: '' });
+    setSectionsDone([]);
+
+    const sessionId = crypto.randomUUID();
+    const payload = {
+      name: form.name,
+      email: form.email,
+      url: form.url,
+      session_id: sessionId
+    };
+
+    const eventSource = new EventSource(`${import.meta.env.VITE_API_BASE_URL}/progress/${sessionId}`);
+    eventSource.onmessage = (e) => {
+
+      try {
+
+
+        const data = JSON.parse(e.data);
+        setProgress({ percent: data.percent, section: data.section });
+        setSectionsDone((prev) => [...new Set([...prev, data.section])]); // avoid duplicates
+        if (data.percent >= 100) eventSource.close();
+      } catch (err) {
+        console.error("SSE parsing error:", err);
+      }
+    };
     try {
-      // const formData = new FormData();
-      // formData.append('name', form.name);
-      // formData.append('email', form.email);
-      // formData.append('url', form.url);
-
-      const payload = {
-        name: form.name,
-        email: form.email,
-        url: form.url
-      };
-
       const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/submit`, payload);
-      //const res = await axios.post(`https://auditbackend-production.up.railway.app/submit`, payload);
-
       setPdfUrl(res.data.pdf_url);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to generate PDF');
@@ -46,7 +57,7 @@ function App() {
     <div className="app-container">
       <div className="card">
         <h1 className="card-title">Website Audit</h1>
-        
+
         <form onSubmit={handleSubmit} className="form">
           <div className="form-group">
             <label htmlFor="name">Name</label>
@@ -101,10 +112,22 @@ function App() {
           {error && <div className="error-message">{error}</div>}
         </form>
 
+        {isLoading && (
+          <div className="progress-container">
+            <p>Processing: {progress.section.replace(/_/g, ' ').toUpperCase()} ({progress.percent}%)</p>
+            <progress value={progress.percent} max="100" />
+            <ul>
+              {sectionsDone.map((sec, idx) => (
+                <li key={idx}>✅ {sec.replace(/_/g, ' ').toUpperCase()}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {pdfUrl && (
           <div className="download-section">
             <a href={pdfUrl} className="download-link" target="_blank" rel="noopener noreferrer">
-               Download Your PDF Report
+              Download Your PDF Report
             </a>
           </div>
         )}
